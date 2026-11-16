@@ -1,0 +1,104 @@
+# MRU Data Platform — full stack
+#   docker compose up -d --build
+#   docker compose exec web python manage.py migrate
+#   docker compose exec web python manage.py createsuperuser
+#   docker compose exec web python deployment.py        # register the Prefect schedules
+#
+# Only the web app is published. Databases and the Prefect UI listen on 127.0.0.1
+# (reach them through an SSH tunnel), and every password must come from .env.
+services:
+  db:
+    image: postgres:15
+    container_name: mru_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME:-currency_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [mru_network]
+
+  mongo:
+    image: mongo:4.4
+    container_name: mru_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "127.0.0.1:27017:27017"
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [mru_network]
+
+  web:
+    build: .
+    container_name: mru_web
+    command: gunicorn mru_dataplatform.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
+    volumes:
+      - .:/code
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    env_file: .env
+    environment:
+      - PREFECT_API_URL=http://prefect_server:4200/api
+    depends_on:
+      db: {condition: service_healthy}
+      prefect_server: {condition: service_started}
+    networks: [mru_network]
+    restart: unless-stopped
+
+  sync:
+    build:
+      context: ./services/sync_mongo
+    container_name: mru_sync
+    env_file: .env
+    depends_on:
+      db: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+    networks: [mru_network]
+    restart: "no"          # one-off run; scheduled runs go through Prefect
+
+  prefect_server:
+    image: prefecthq/prefect:3-latest
+    container_name: mru_prefect
+    command: prefect server start
+    environment:
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_UI_API_URL=${PREFECT_UI_API_URL:-http://127.0.0.1:4200/api}
+    ports:
+      - "127.0.0.1:4200:4200"
+    networks: [mru_network]
+
+  prefect_worker:
+    build: .
+    container_name: mru_worker
+    entrypoint: ["prefect", "worker", "start", "--pool", "default-agent-pool"]
+    volumes:
+      - .:/code
+    working_dir: /code
+    env_file: .env
+    environment:
+      - PREFECT_API_URL=http://prefect_server:4200/api
+    depends_on: [prefect_server, db, mongo]
+    networks: [mru_network]
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  mongo_data:
+
+networks:
+  mru_network:
+    driver: bridge

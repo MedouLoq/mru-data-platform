@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - MRU Financial Platform{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-graph-up-arrow text-success"></i> Financial Market Overview</h1>
+            <p class="text-muted mb-0">Real-time monitoring of currencies and commodities in MRU</p>
+        </div>
+        <div class="text-end">
+            <small class="text-muted d-block"><i class="bi bi-clock"></i> Last Update</small>
+            <strong>{% now "d/m/Y H:i" %}</strong>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Assets</h6>
+                        <h2 class="mb-0">{{ total_assets }}</h2>
+                    </div>
+                    <i class="bi bi-collection fs-1 text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Currencies</h6>
+                        <h2 class="mb-0">{{ currencies|length }}</h2>
+                    </div>
+                    <i class="bi bi-cash-coin fs-1 text-info"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Commodities</h6>
+                        <h2 class="mb-0">{{ commodities|length }}</h2>
+                    </div>
+                    <i class="bi bi-box-seam fs-1 text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Currencies Section -->
+{% if currencies %}
+<div class="mb-5">
+    <h3 class="mb-3">
+        <i class="bi bi-currency-exchange text-info"></i> Currencies
+        <span class="badge bg-info">{{ currencies|length }}</span>
+    </h3>
+    <div class="row">
+        {% for item in currencies %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-info"><i class="bi bi-cash"></i> Currency</span>
+                        <small class="text-muted">{{ item.latest.date|date:"d M Y" }}</small>
+                    </div>
+                    <h5 class="card-title mt-2 mb-0">
+                        <strong>{{ item.asset.code }}</strong>
+                        <small class="text-muted">/ MRU</small>
+                    </h5>
+                    <small class="text-muted">{{ item.asset.name }}</small>
+                </div>
+                <div class="card-body">
+                    <h2 class="display-6 fw-bold mb-3">
+                        {{ item.latest.value_mru|floatformat:4 }}
+                        <small class="fs-6 text-muted">MRU</small>
+                    </h2>
+                    
+                    <!-- Daily Change -->
+                    <div class="mb-2">
+                        <small class="text-muted">Daily Change:</small>
+                        <p class="mb-1">
+                            <span class="{% if item.variation >= 0 %}price-up{% else %}price-down{% endif %}">
+                                {% if item.variation >= 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-down-circle-fill"></i>{% endif %}
+                                {{ item.abs_variation|floatformat:2 }}%
+                            </span>
+                        </p>
+                    </div>
+                    
+                    <!-- Weekly Change -->
+                    {% if item.weekly_variation %}
+                    <div class="mb-2">
+                        <small class="text-muted">Weekly:</small>
+                        <span class="{% if item.weekly_variation >= 0 %}price-up{% else %}price-down{% endif %} ms-2">
+                            {{ item.weekly_variation|floatformat:2 }}%
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Monthly Change -->
+                    {% if item.monthly_variation %}
+                    <div>
+                        <small class="text-muted">Monthly:</small>
+                        <span class="{% if item.monthly_variation >= 0 %}price-up{% else %}price-down{% endif %} ms-2">
+                            {{ item.monthly_variation|floatformat:2 }}%
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light border-0 py-3">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'asset_detail' item.asset.code %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-bar-chart-line"></i> View History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Commodities Section -->
+{% if commodities %}
+<div class="mb-5">
+    <h3 class="mb-3">
+        <i class="bi bi-box-seam text-warning"></i> Commodities
+        <span class="badge bg-warning text-dark">{{ commodities|length }}</span>
+    </h3>
+    <div class="row">
+        {% for item in commodities %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-warning text-dark"><i class="bi bi-box"></i> Commodity</span>
+                        <small class="text-muted">{{ item.latest.date|date:"d M Y" }}</small>
+                    </div>
+                    <h5 class="card-title mt-2 mb-0">
+                        <strong>{{ item.asset.code }}</strong>
+                    </h5>
+                    <small class="text-muted">{{ item.asset.name }}</small>
+                </div>
+                <div class="card-body">
+                    <h2 class="display-6 fw-bold mb-3">
+                        {{ item.latest.value_mru|floatformat:2 }}
+                        <small class="fs-6 text-muted">MRU</small>
+                    </h2>
+                    
+                    <!-- Daily Change -->
+                    <div class="mb-2">
+                        <small class="text-muted">Daily Change:</small>
+                        <p class="mb-1">
+                            <span class="{% if item.variation >= 0 %}price-up{% else %}price-down{% endif %}">
+                                {% if item.variation >= 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-down-circle-fill"></i>{% endif %}
+                                {{ item.abs_variation|floatformat:2 }}%
+                            </span>
+                        </p>
+                    </div>
+                    
+                    <!-- Weekly Change -->
+                    {% if item.weekly_variation %}
+                    <div class="mb-2">
+                        <small class="text-muted">Weekly:</small>
+                        <span class="{% if item.weekly_variation >= 0 %}price-up{% else %}price-down{% endif %} ms-2">
+                            {{ item.weekly_variation|floatformat:2 }}%
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Monthly Change -->
+                    {% if item.monthly_variation %}
+                    <div>
+                        <small class="text-muted">Monthly:</small>
+                        <span class="{% if item.monthly_variation >= 0 %}price-up{% else %}price-down{% endif %} ms-2">
+                            {{ item.monthly_variation|floatformat:2 }}%
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-light border-0 py-3">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'asset_detail' item.asset.code %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-bar-chart-line"></i> View History
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if not data %}
+<div class="alert alert-info text-center">
+    <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+    <h5>No Data Available</h5>
+    <p class="mb-0">Please add assets and prices through the admin panel.</p>
+</div>
+{% endif %}
+{% endblock %}

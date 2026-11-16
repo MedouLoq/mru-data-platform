@@ -1,0 +1,4 @@
+prefect==3.9.3
+psycopg2-binary==2.9.13
+pymongo==4.20.0
+python-dotenv==1.2.4

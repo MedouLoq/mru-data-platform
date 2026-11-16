@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Asset Comparison{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-bar-chart-line-fill"></i> Asset Comparison</h1>
+    <p class="text-muted mb-0">Compare multiple assets side-by-side</p>
+</div>
+
+<!-- Asset Selection Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-filter"></i> Select Assets to Compare</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" action="{% url 'comparison' %}">
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Assets (select multiple):</label>
+                    <select name="assets" class="form-select" multiple size="8" required>
+                        {% for asset in all_assets %}
+                        <option value="{{ asset.code }}" {% if asset.code in selected_codes %}selected{% endif %}>
+                            {{ asset.code }} - {{ asset.name }} ({{ asset.get_category_display }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Hold Ctrl (Cmd on Mac) to select multiple assets</small>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Time Period:</label>
+                    <select name="days" class="form-select">
+                        <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 Days</option>
+                        <option value="90" {% if days == 90 %}selected{% endif %}>Last 3 Months</option>
+                        <option value="180" {% if days == 180 %}selected{% endif %}>Last 6 Months</option>
+                        <option value="365" {% if days == 365 %}selected{% endif %}>Last Year</option>
+                        <option value="730" {% if days == 730 %}selected{% endif %}>Last 2 Years</option>
+                    </select>
+                    
+                    <button type="submit" class="btn btn-primary w-100 mt-3">
+                        <i class="bi bi-search"></i> Compare Assets
+                    </button>
+                    
+                    {% if selected_codes %}
+                    <a href="{% url 'comparison' %}" class="btn btn-outline-secondary w-100 mt-2">
+                        <i class="bi bi-x-circle"></i> Clear Selection
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if comparison_data %}
+<!-- Comparison Chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Price Comparison Chart</h5>
+    </div>
+    <div class="card-body">
+        <div id="comparisonChart" style="width:100%; height:500px;"></div>
+    </div>
+</div>
+
+<!-- Comparison Table -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-table"></i> Comparison Summary</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Asset</th>
+                        <th>Category</th>
+                        <th>Latest Price</th>
+                        <th>Initial Price</th>
+                        <th>Total Change</th>
+                        <th>Data Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in comparison_data %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.asset.code }}</strong><br>
+                            <small class="text-muted">{{ item.asset.name }}</small>
+                        </td>
+                        <td>
+                            <span class="badge {% if item.asset.category == 'currency' %}bg-info{% else %}bg-warning text-dark{% endif %}">
+                                {{ item.asset.get_category_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>{{ item.latest.value_mru|floatformat:4 }} MRU</strong><br>
+                            <small class="text-muted">{{ item.latest.date|date:"d M Y" }}</small>
+                        </td>
+                        <td>
+                            {{ item.oldest.value_mru|floatformat:4 }} MRU<br>
+                            <small class="text-muted">{{ item.oldest.date|date:"d M Y" }}</small>
+                        </td>
+                        <td>
+                            <span class="{% if item.total_change >= 0 %}price-up{% else %}price-down{% endif %}">
+                                {% if item.total_change >= 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-down-circle-fill"></i>{% endif %}
+                                {{ item.total_change|floatformat:2 }}%
+                            </span>
+                        </td>
+                        <td>{{ item.days }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% elif selected_codes %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> No data available for the selected assets.
+</div>
+{% else %}
+<div class="alert alert-info text-center">
+    <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+    <h5>Select Assets to Begin Comparison</h5>
+    <p class="mb-0">Choose two or more assets from the form above to compare their price movements.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if comparison_data %}
+    const chartData = {{ chart_data|safe }};
+    
+    const traces = chartData.series.map((series, index) => {
+        const colors = ['#006233', '#dc3545', '#0d6efd', '#ffc107', '#6f42c1', '#20c997'];
+        return {
+            x: chartData.dates,
+            y: series.data,
+            type: 'scatter',
+            mode: 'lines',
+            name: series.name,
+            line: {
+                color: colors[index % colors.length],
+                width: 2
+            }
+        };
+    });
+    
+    const layout = {
+        title: '',
+        xaxis: {
+            title: 'Date',
+            showgrid: true,
+            gridcolor: '#e9ecef'
+        },
+        yaxis: {
+            title: 'Price (MRU)',
+            showgrid: true,
+            gridcolor: '#e9ecef'
+        },
+        hovermode: 'x unified',
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: 'white',
+        margin: { t: 20, r: 20, b: 50, l: 60 },
+        legend: {
+            orientation: 'h',
+            yanchor: 'bottom',
+            y: -0.2,
+            xanchor: 'center',
+            x: 0.5
+        }
+    };
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d']
+    };
+    
+    Plotly.newPlot('comparisonChart', traces, layout, config);
+    {% endif %}
+});
+</script>
+{% endblock %}

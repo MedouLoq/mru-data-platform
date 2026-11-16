@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}Market Statistics{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-graph-up-arrow"></i> Market Statistics & Analytics</h1>
+    <p class="text-muted mb-0">Comprehensive statistical analysis of all tracked assets</p>
+</div>
+
+{% if stats_data %}
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> Overview</h5>
+                <p class="mb-0">
+                    Showing statistics for <strong>{{ stats_data|length }}</strong> assets based on the last 365 days of data.
+                    Volatility is measured as standard deviation of daily prices.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-table"></i> Detailed Statistics</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th rowspan="2" class="align-middle">Asset</th>
+                        <th rowspan="2" class="align-middle">Category</th>
+                        <th colspan="4" class="text-center">Price Analysis (MRU)</th>
+                        <th rowspan="2" class="align-middle">Volatility</th>
+                        <th rowspan="2" class="align-middle">Data Points</th>
+                    </tr>
+                    <tr>
+                        <th>Current</th>
+                        <th>Max (Year)</th>
+                        <th>Min (Year)</th>
+                        <th>Average</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stats_data %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.asset.code }}</strong><br>
+                            <small class="text-muted">{{ item.asset.name }}</small>
+                        </td>
+                        <td>
+                            <span class="badge {% if item.asset.category == 'currency' %}bg-info{% else %}bg-warning text-dark{% endif %}">
+                                {{ item.asset.get_category_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>{{ item.current|floatformat:4 }}</strong>
+                        </td>
+                        <td class="price-up">
+                            {{ item.max_year|floatformat:4 }}
+                        </td>
+                        <td class="price-down">
+                            {{ item.min_year|floatformat:4 }}
+                        </td>
+                        <td>
+                            {{ item.avg_year|floatformat:4 }}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                {{ item.volatility|floatformat:4 }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>{{ item.data_points }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Price Range Visualization -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Price Range Comparison</h5>
+            </div>
+            <div class="card-body">
+                <div id="rangeChart" style="width:100%; height:600px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Volatility Comparison -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-activity"></i> Volatility Comparison</h5>
+            </div>
+            <div class="card-body">
+                <div id="volatilityChart" style="width:100%; height:400px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="alert alert-info text-center">
+    <i class="bi bi-info-circle fs-3 d-block mb-2"></i>
+    <h5>No Statistical Data Available</h5>
+    <p class="mb-0">Please add assets and price data through the admin panel.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if stats_data %}
+    
+    // Prepare data for charts
+    const assets = [
+        {% for item in stats_data %}
+        {
+            code: '{{ item.asset.code }}',
+            name: '{{ item.asset.name }}',
+            current: {{ item.current }},
+            max: {{ item.max_year }},
+            min: {{ item.min_year }},
+            avg: {{ item.avg_year }},
+            volatility: {{ item.volatility }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    // Price Range Chart (Box Plot style)
+    const rangeTrace = {
+        x: assets.map(a => a.code),
+        y: assets.map(a => a.avg),
+        error_y: {
+            type: 'data',
+            symmetric: false,
+            array: assets.map(a => a.max - a.avg),
+            arrayminus: assets.map(a => a.avg - a.min),
+            color: '#006233',
+            thickness: 2,
+            width: 5
+        },
+        type: 'scatter',
+        mode: 'markers',
+        name: 'Average Price',
+        marker: {
+            color: '#c29b40',
+            size: 10,
+            line: {
+                color: '#006233',
+                width: 2
+            }
+        }
+    };
+    
+    const rangeLayout = {
+        title: 'Price Range (Min-Avg-Max) over Last Year',
+        xaxis: {
+            title: 'Asset',
+            tickangle: -45
+        },
+        yaxis: {
+            title: 'Price (MRU)'
+        },
+        showlegend: true,
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: 'white',
+        margin: { t: 50, r: 20, b: 100, l: 60 }
+    };
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false
+    };
+    
+    Plotly.newPlot('rangeChart', [rangeTrace], rangeLayout, config);
+    
+    // Volatility Chart
+    const volatilityTrace = {
+        x: assets.map(a => a.code),
+        y: assets.map(a => a.volatility),
+        type: 'bar',
+        marker: {
+            color: assets.map(a => a.volatility),
+            colorscale: 'RdYlGn',
+            reversescale: true,
+            showscale: true,
+            colorbar: {
+                title: 'Volatility'
+            }
+        },
+        text: assets.map(a => a.volatility.toFixed(4)),
+        textposition: 'outside'
+    };
+    
+    const volatilityLayout = {
+        title: 'Price Volatility by Asset (Standard Deviation)',
+        xaxis: {
+            title: 'Asset',
+            tickangle: -45
+        },
+        yaxis: {
+            title: 'Volatility (Std Dev)'
+        },
+        showlegend: false,
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: 'white',
+        margin: { t: 50, r: 20, b: 100, l: 60 }
+    };
+    
+    Plotly.newPlot('volatilityChart', [volatilityTrace], volatilityLayout, config);
+    
+    {% endif %}
+});
+</script>
+{% endblock %}

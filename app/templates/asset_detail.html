@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}{{ asset.code }} - Asset Detail{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-start flex-wrap">
+        <div>
+            <span class="badge {% if asset.category == 'currency' %}bg-info{% else %}bg-warning text-dark{% endif %} mb-2">
+                {{ asset.get_category_display }}
+            </span>
+            <h1 class="mb-2">{{ asset.code }} - {{ asset.name }}</h1>
+            <p class="text-muted mb-0">Historical price data and analysis</p>
+        </div>
+        {% if latest_price %}
+        <div class="text-end">
+            <small class="text-muted d-block">Current Price</small>
+            <h2 class="mb-0">{{ latest_price.value_mru|floatformat:4 }} <small class="text-muted">MRU</small></h2>
+            <small class="text-muted">{{ latest_price.date|date:"d M Y" }}</small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> {{ error }}
+</div>
+{% else %}
+
+<!-- Time Period Selector -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <h6 class="mb-0">Select Time Period:</h6>
+            <div class="btn-group" role="group">
+                <a href="?days=30" class="btn btn-sm {% if days == 30 %}btn-primary{% else %}btn-outline-primary{% endif %}">1 Month</a>
+                <a href="?days=90" class="btn btn-sm {% if days == 90 %}btn-primary{% else %}btn-outline-primary{% endif %}">3 Months</a>
+                <a href="?days=180" class="btn btn-sm {% if days == 180 %}btn-primary{% else %}btn-outline-primary{% endif %}">6 Months</a>
+                <a href="?days=365" class="btn btn-sm {% if days == 365 %}btn-primary{% else %}btn-outline-primary{% endif %}">1 Year</a>
+                <a href="?days=730" class="btn btn-sm {% if days == 730 %}btn-primary{% else %}btn-outline-primary{% endif %}">2 Years</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <small class="text-muted d-block">Current Price</small>
+                <h3 class="mb-0 price-neutral">{{ stats.current|floatformat:4 }}</h3>
+                <small class="text-muted">MRU</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <small class="text-muted d-block">Maximum</small>
+                <h3 class="mb-0 price-up">{{ stats.max|floatformat:4 }}</h3>
+                <small class="text-muted">MRU</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <small class="text-muted d-block">Minimum</small>
+                <h3 class="mb-0 price-down">{{ stats.min|floatformat:4 }}</h3>
+                <small class="text-muted">MRU</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body text-center">
+                <small class="text-muted d-block">Average</small>
+                <h3 class="mb-0 price-neutral">{{ stats.avg|floatformat:4 }}</h3>
+                <small class="text-muted">MRU</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Price Variations -->
+<div class="row mb-4">
+    {% if variations.daily %}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-2"><i class="bi bi-calendar-day"></i> Daily Change</h6>
+                <h4 class="{% if variations.daily.percentage >= 0 %}price-up{% else %}price-down{% endif %}">
+                    {% if variations.daily.percentage >= 0 %}+{% endif %}{{ variations.daily.percentage|floatformat:2 }}%
+                </h4>
+                <small class="text-muted">{{ variations.daily.absolute|floatformat:4 }} MRU</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if variations.weekly %}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-2"><i class="bi bi-calendar-week"></i> Weekly Change</h6>
+                <h4 class="{% if variations.weekly.percentage >= 0 %}price-up{% else %}price-down{% endif %}">
+                    {% if variations.weekly.percentage >= 0 %}+{% endif %}{{ variations.weekly.percentage|floatformat:2 }}%
+                </h4>
+                <small class="text-muted">{{ variations.weekly.absolute|floatformat:4 }} MRU</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if variations.monthly %}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-2"><i class="bi bi-calendar-month"></i> Monthly Change</h6>
+                <h4 class="{% if variations.monthly.percentage >= 0 %}price-up{% else %}price-down{% endif %}">
+                    {% if variations.monthly.percentage >= 0 %}+{% endif %}{{ variations.monthly.percentage|floatformat:2 }}%
+                </h4>
+                <small class="text-muted">{{ variations.monthly.absolute|floatformat:4 }} MRU</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if variations.yearly %}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-2"><i class="bi bi-calendar"></i> Yearly Change</h6>
+                <h4 class="{% if variations.yearly.percentage >= 0 %}price-up{% else %}price-down{% endif %}">
+                    {% if variations.yearly.percentage >= 0 %}+{% endif %}{{ variations.yearly.percentage|floatformat:2 }}%
+                </h4>
+                <small class="text-muted">{{ variations.yearly.absolute|floatformat:4 }} MRU</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Price Chart -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Price History Chart</h5>
+    </div>
+    <div class="card-body">
+        <div id="priceChart" style="width:100%; height:500px;"></div>
+    </div>
+</div>
+
+<!-- Data Info -->
+<div class="card">
+    <div class="card-body">
+        <p class="mb-0 text-muted">
+            <i class="bi bi-info-circle"></i> 
+            Showing <strong>{{ stats.count }}</strong> data points for the selected period.
+            Data sourced from Banque Centrale de Mauritanie (BCM).
+        </p>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if chart_data %}
+    const chartData = {{ chart_data|safe }};
+    
+    const trace = {
+        x: chartData.dates,
+        y: chartData.values,
+        type: 'scatter',
+        mode: 'lines',
+        name: '{{ asset.code }}',
+        line: {
+            color: '#006233',
+            width: 2
+        },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(0, 98, 51, 0.1)'
+    };
+    
+    const layout = {
+        title: '',
+        xaxis: {
+            title: 'Date',
+            showgrid: true,
+            gridcolor: '#e9ecef'
+        },
+        yaxis: {
+            title: 'Price (MRU)',
+            showgrid: true,
+            gridcolor: '#e9ecef'
+        },
+        hovermode: 'x unified',
+        plot_bgcolor: '#f8f9fa',
+        paper_bgcolor: 'white',
+        margin: { t: 20, r: 20, b: 50, l: 60 }
+    };
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d']
+    };
+    
+    Plotly.newPlot('priceChart', [trace], layout, config);
+    {% endif %}
+});
+</script>
+{% endblock %}
